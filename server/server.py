@@ -49,12 +49,16 @@ def set_line(board, x, y, dx, dy):
 def check_end(game_id, player_id):
     board = games[game_id]["board"]
     possibilities = [[1, 0], [0, 1], [1, 1], [1, -1]]
+    end_list = []
     for i in range(15):
         for j in range(15):
             for dx, dy in possibilities:
                 if check_line(board, i, j, dx, dy):
-                    set_line(board, i, j, dx, dy)
-                    return True
+                    end_list.append([i, j, dx, dy])
+    if len(end_list):
+        for i, j, dx, dy in end_list:
+            set_line(board, i, j, dx, dy)
+        return True
     return False
 
 def ruch(game_id, player_id, data):
