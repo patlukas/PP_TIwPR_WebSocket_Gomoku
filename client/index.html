@@ -55,30 +55,37 @@
             return [game_id, player_id, state, turn, str]
         }
 
+        function set_id(game_id, player_id) {
+            if(game_id != GAME_ID || player_id != PLAYER_ID) {
+                GAME_ID = game_id
+                PLAYER_ID = player_id
+                sessionStorage.setItem("game_id", game_id)
+                sessionStorage.setItem("player_id", player_id)
+            }
+        }
+
+        function get_id() {
+            var game_id = sessionStorage.getItem("game_id")
+            var player_id = sessionStorage.getItem("player_id")
+            if(game_id !== null && player_id !== null) {
+                GAME_ID = parseInt(game_id)
+                PLAYER_ID = parseInt(player_id)
+            }
+        }
+
         function onOpen(e) {
             console.log(e.type, e);
-            /*
-            IF nie ma id user w pamieci to send 0
-            Else send id usera 0<id>
-            */
-
+            get_id()
             send_msg(255)
-            // websocket.send("0<id>");
         }
 
         function onMessage(e) {
             let [game_id, sign, state, turn, board] = recv(e.data)
+            set_id(game_id, sign)
             GAME_ID = game_id
             PLAYER_ID = sign
             drawBoard(board, turn)
-            /*
-                If 11xxx
-                    zaoisanie do storage if gracza
-                Else:
-                    zaprezentowanie stanu gry
-            */
             console.log(e.type + ': '  + e.data);
-            // websocket.close();
         }
 
         function onClose(e) {
@@ -99,61 +106,52 @@
         const boardSize = 15;
         const cellSize = canvas.width / boardSize;
 
-        // Rysowanie linii siatki
         function drawBoard(data, turn) {
+            if(data != "") {
+                for (let x = 0; x < boardSize*boardSize; x++) {
+                    if(data[x] == "1") {
+                        drawGreen(parseInt(x/15), x%15);
+                    }
+                    if(data[x] == "2" || (data[x] == "1" && turn == 0)) {
+                        drawO(parseInt(x/15), x%15);
+                    }
+                    if(data[x] == "3" || (data[x] == "1" && turn == 1)) {
+                        drawX(parseInt(x/15), x%15);
+                    }
+                }
+            }
+
             context.beginPath();
-            for (let i = 0; i <= boardSize; i++) {
-                // Rysowanie pionowych linii
-                context.moveTo(i * cellSize, 0);
-                context.lineTo(i * cellSize, canvas.height);
-                // Rysowanie poziomych linii
-                context.moveTo(0, i * cellSize);
-                context.lineTo(canvas.width, i * cellSize);
+            context.rect(1,1,canvas.width-1, canvas.height-1)
+            for (let l = cellSize; l < canvas.width; l+=cellSize) {
+                context.moveTo(l, 0);
+                context.lineTo(l, canvas.height);
+
+                context.moveTo(0, l);
+                context.lineTo(canvas.width, l);
             }
             context.strokeStyle = "#000";
             context.stroke();
-            if(data == "") return;
-
-            for (let x = 0; x < boardSize*boardSize; x++) {
-                if(data[x] == "1") {
-                    drawGreen(parseInt(x/15), x%15);
-                }
-                if(data[x] == "2" || (data[x] == "1" && turn == 0)) {
-                    drawO(parseInt(x/15), x%15);
-                }
-                if(data[x] == "3" || (data[x] == "1" && turn == 1)) {
-                    drawX(parseInt(x/15), x%15);
-                }
-                
-                // for (let col = 0; col < boardSize; col++) {
-                //     if (board[row][col] === 1) {
-                //         drawX(row, col);
-                //     } else if (board[row][col] === 2) {
-                //     } else if (board[row][col] === 3) {
-                //         drawGreen(row, col);
-                //     }
-                // }
-            }
+            
         }
 
         function drawX(row, col) {
             const x = col * cellSize;
             const y = row * cellSize;
             context.beginPath();
-            context.moveTo(x + 10, y + 10);
-            context.lineTo(x + cellSize - 10, y + cellSize - 10);
-            context.moveTo(x + cellSize - 10, y + 10);
-            context.lineTo(x + 10, y + cellSize - 10);
+            context.moveTo(x + 5, y + 5);
+            context.lineTo(x + cellSize - 5, y + cellSize - 5);
+            context.moveTo(x + cellSize - 5, y + 5);
+            context.lineTo(x + 5, y + cellSize - 5);
             context.strokeStyle = "#f00";
             context.stroke();
         }
 
-        // Funkcja rysująca kółko
         function drawO(row, col) {
             const x = col * cellSize + cellSize / 2;
             const y = row * cellSize + cellSize / 2;
             context.beginPath();
-            context.arc(x, y, cellSize / 2 - 10, 0, 2 * Math.PI);
+            context.arc(x, y, cellSize / 2 - 5, 0, 2 * Math.PI);
             context.strokeStyle = "#00f";
             context.stroke();
         }
@@ -163,7 +161,7 @@
             const x = col * cellSize;
             const y = row * cellSize;
             context.fillStyle = "#0f0";
-            context.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+            context.fillRect(x, y, cellSize - 1, cellSize - 1);
         }
 
         canvas.addEventListener('click', (event) => {

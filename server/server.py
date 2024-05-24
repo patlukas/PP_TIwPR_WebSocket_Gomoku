@@ -4,15 +4,7 @@ import tornado.ioloop
 import struct
 
 
-games = {
-    # 1: {
-    #     "plyers": ["X", "O"],
-    #     "status": 0,
-    #     "turn": 0,
-    #     "board": [0,1,2,3]
-    # }
-}
-
+games = {}
 waiting_id = 0
 
 def get_id():
@@ -23,25 +15,28 @@ def get_id():
 
 def send(game_id, player_id):
     game = games[game_id]
-    print(games, game)
     board_b = b""
     for x in game["board"]:
         board_b += str(x).encode()
     message = struct.pack("BBBB225s", game_id, player_id, game["status"], game["turn"], board_b)
-    game["players"][player_id].write_message(message, binary=True)
+    player = game["players"][player_id]
+    if player != None:
+        player.write_message(message, binary=True)
+
+def check_field(board, x, y, sign):
+    if x < 0 or x >= 15 or y < 0 or y >= 15 or board[y*15 + x] != sign:
+        return False
+    return True
 
 def check_line(board, x, y, dx, dy):
     sign = board[y*15+x]
     if sign < 2:
         return False
     for i in range(1, 5):
-        nx = x + dx*i
-        ny = y + dy*i
-        if nx < 0 or nx >= 15 or ny < 0 or ny >= 15 or board[ny*15 + nx] != sign:
+        if not check_field(board, x + dx*i, y + dy*i, sign):
             return False
-    nx = x + dx*6
-    ny = y + dy*6
-    if nx < 0 or nx >= 15 or ny < 0 or ny >= 15 or board[ny*15 + nx] != sign:
+
+    if not check_field(board, x + dx*(-1), y + dy*(-1), sign) and not check_field(board, x + dx*5, y + dy*5, sign):
         return True
     return False
 
@@ -81,6 +76,9 @@ class EchoHandler(tornado.websocket.WebSocketHandler):
         print("open")
 
     def on_close(self):
+        if hasattr(self, "id"):
+            if self.id[0] in games and len(games[self.id[0]]["players"]) > self.id[1]:
+                games[self.id[0]]["players"][self.id[1]] = None
         print("close")
 
     def on_message(self, message):
@@ -95,7 +93,8 @@ class EchoHandler(tornado.websocket.WebSocketHandler):
         id_int = m[0]
         sign_int = m[1]
         data_int = m[2]
-        if id_int == 0 or id_int not in games:
+        self.id = [id_int, sign_int]
+        if id_int == 0 or id_int not in games or len(games[id_int]["players"]) <= sign_int:
             if waiting_id == 0:
                 waiting_id = get_id()
                 if waiting_id == False:
@@ -124,6 +123,7 @@ class EchoHandler(tornado.websocket.WebSocketHandler):
             else:
                 send(id_int, sign_int)
         else:
+            games[id_int]["players"][sign_int] = self
             send(id_int, sign_int)
 
     def check_origin(self, origin):
