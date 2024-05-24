@@ -4,10 +4,45 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WebSocket Example</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: linear-gradient(to right, #0062b8, #00abb4);
+            font-family: Arial, sans-serif;
+            color: #333;
+        }
+        h1 {
+            font-size: 80px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        canvas {
+            border: 2px solid #333;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background: linear-gradient(to down, #800, #080);
+        }
+        button {
+            background-color: #ff6666;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #ff4d4d;
+        }
+    </style>
 </head>
 <body>
-    <h1>WebSocket Test</h1>
+    <h1>Gomoku</h1>
+    <h2 id="room">Pokój: </h2>
     <canvas id="gomokuCanvas" width="600" height="600"></canvas>
+    <button type="button" onclick="send_msg(254)" id="game">Zakończ grę</button>
 
     <script>
         GAME_ID = 0
@@ -44,11 +79,10 @@
             const state = view.getUint8(2);
             const turn = view.getUint8(3);
 
-            // Reading the 225-byte string
             let str = '';
             for (let i = 0; i < 225; i++) {
                 const charCode = view.getUint8(4 + i);
-                if (charCode === 0) break; // Stop at the null terminator
+                if (charCode === 0) break;
                 str += String.fromCharCode(charCode);
             }
             console.log(game_id, player_id, state, turn, str)
@@ -84,7 +118,7 @@
             set_id(game_id, sign)
             GAME_ID = game_id
             PLAYER_ID = sign
-            drawBoard(board, turn)
+            drawBoard(board, sign, state, turn, game_id)
             console.log(e.type + ': '  + e.data);
         }
 
@@ -106,7 +140,14 @@
         const boardSize = 15;
         const cellSize = canvas.width / boardSize;
 
-        function drawBoard(data, turn) {
+        function drawBoard(data, sign, state, turn, game_id) {
+            document.querySelector("#room").innerHTML = "Pokój " + game_id
+            const game_el = document.querySelector("#game")
+            if(state == 0) game_el.style.display = "none"
+            else game_el.style.display = "block"
+            if(state == 1)  game_el.innerHTML= "Zakończ grę"
+            else if(state == 2)  game_el.innerHTML= "Nowa gra"
+            context.clearRect(0, 0, canvas.width, canvas.height);
             if(data != "") {
                 for (let x = 0; x < boardSize*boardSize; x++) {
                     if(data[x] == "1") {
@@ -132,7 +173,15 @@
             }
             context.strokeStyle = "#000";
             context.stroke();
-            
+
+            if(state == 0) drawText("Czekanie na rywala")
+            else if(state == 1 && sign != turn) drawText("Ruch rywala")
+            else if(state == 2) {
+                if(sign != turn) drawText("Porażka")
+                else drawText("Wygrana")
+
+                drawText("Kliknij na planszę, aby znowu zagrać", 350, "20px Arial")
+            }
         }
 
         function drawX(row, col) {
@@ -164,6 +213,13 @@
             context.fillRect(x, y, cellSize - 1, cellSize - 1);
         }
 
+        function drawText(text, y=canvas.height/2, font="48px Arial") {
+            context.font = font;
+            context.fillStyle = "#800";
+            context.textAlign = "center";
+            context.fillText(text, canvas.width / 2, y);
+        }
+
         canvas.addEventListener('click', (event) => {
             const rect = canvas.getBoundingClientRect();
             const x = event.clientX - rect.left;
@@ -173,30 +229,7 @@
             f(row*15 + col);
         });
 
-        drawBoard("", 0);
+        drawBoard("", 0, 0, 0, 0);
     </script>
-    <table>
-        <tr>
-            <td>
-                <button type="button" onclick="f(1)">1</button>
-                <button type="button" onclick="f(2)">2</button>
-                <button type="button" onclick="f(3)">3</button>
-            </td>
-        </tr>
-        <tr>
-            <td>
-                <button type="button" onclick="f(4)">4</button>
-                <button type="button" onclick="f(5)">5</button>
-                <button type="button" onclick="f(6)">6</button>
-            </td>
-        </tr>
-        <tr>
-            <td>
-                <button type="button" onclick="f(7)">7</button>
-                <button type="button" onclick="f(8)">8</button>
-                <button type="button" onclick="f(9)">9</button>
-            </td>
-        </tr>
-    </table>
 </body>
 </html>

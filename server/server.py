@@ -19,9 +19,10 @@ def send(game_id, player_id):
     for x in game["board"]:
         board_b += str(x).encode()
     message = struct.pack("BBBB225s", game_id, player_id, game["status"], game["turn"], board_b)
-    player = game["players"][player_id]
-    if player != None:
-        player.write_message(message, binary=True)
+    if len(game["players"]) > player_id:
+        player = game["players"][player_id]
+        if player != None:
+            player.write_message(message, binary=True)
 
 def check_field(board, x, y, sign):
     if x < 0 or x >= 15 or y < 0 or y >= 15 or board[y*15 + x] != sign:
@@ -88,7 +89,6 @@ class EchoHandler(tornado.websocket.WebSocketHandler):
     def on_message(self, message):
         global waiting_id 
 
-        print(f"{message}")
         if len(message) != 3:
             print(f"wrong len {len(message)}")
             return
@@ -97,10 +97,13 @@ class EchoHandler(tornado.websocket.WebSocketHandler):
         id_int = m[0]
         sign_int = m[1]
         data_int = m[2]
-        self.id = [id_int, sign_int]
-        if id_int == 0 or id_int not in games or len(games[id_int]["players"]) <= sign_int:
+        print(id_int, sign_int, data_int)
+
+        if id_int == 0 or id_int not in games or len(games[id_int]["players"]) <= sign_int or (not hasattr(self, "id") and games[id_int]["players"][sign_int] != None):
             if waiting_id == 0:
                 waiting_id = get_id()
+                id_int = waiting_id
+                sign_int = 0
                 if waiting_id == False:
                     print("No empty room")
                     return
@@ -116,20 +119,33 @@ class EchoHandler(tornado.websocket.WebSocketHandler):
                 games[waiting_id]["status"] = 1
                 send(waiting_id, 0)
                 send(waiting_id, 1)
+                id_int = waiting_id
+                sign_int = 1
                 waiting_id = 0
-        elif data_int < 255:
+        elif data_int == 255:
+            if games[id_int]["players"][sign_int] == None:
+                games[id_int]["players"][sign_int] = self
+                send(id_int, sign_int)
+        elif data_int == 254:
+            games[id_int]["status"] = 2
+            games[id_int]["turn"] = 1 - sign_int
+            if waiting_id == id_int:
+                waiting_id = 0
+            send(id_int, 0)
+            send(id_int, 1)
+        elif data_int < 225:
             result_ruch = ruch(id_int, sign_int, data_int)
             if result_ruch:
                 send(id_int, 0)
                 send(id_int, 1)
-                if games[id_int]["status"] == 2:
-                    del games[id_int]
             else:
                 send(id_int, sign_int)
-        else:
-            games[id_int]["players"][sign_int] = self
-            send(id_int, sign_int)
+        self.id = [id_int, sign_int]
+        if id_int in games and games[id_int]["status"] == 2:
+            del games[id_int]
+            delattr(self, "id")
 
+            
     def check_origin(self, origin):
         print("ORIGIN: ", origin)
         return True
