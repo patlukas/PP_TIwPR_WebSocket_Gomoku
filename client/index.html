@@ -148,6 +148,7 @@
             if(state == 1)  game_el.innerHTML= "Zakończ grę"
             else if(state == 2)  game_el.innerHTML= "Nowa gra"
             context.clearRect(0, 0, canvas.width, canvas.height);
+            context.lineWidth = 8; 
             if(data != "") {
                 for (let x = 0; x < boardSize*boardSize; x++) {
                     if(data[x] == "1") {
@@ -161,6 +162,7 @@
                     }
                 }
             }
+            context.lineWidth = 1; 
 
             context.beginPath();
             context.rect(1,1,canvas.width-1, canvas.height-1)
